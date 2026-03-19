@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encuesta de Evaluación Docente</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        p.description { text-align: center; color: #666; margin-bottom: 30px; }
+        .form-group { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .form-group:last-child { border-bottom: none; }
+        label.question-text { font-weight: bold; display: block; margin-bottom: 12px; color: #444; line-height: 1.4; }
+        .email-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        .options { display: flex; flex-wrap: wrap; gap: 15px; }
+        .options label { cursor: pointer; background: #eef2f3; padding: 10px 15px; border-radius: 4px; display: flex; align-items: center; gap: 8px; font-size: 16px; transition: background 0.2s; }
+        .options label:hover { background: #dcdcdc; }
+        button { display: block; width: 100%; padding: 15px; background-color: #0056b3; color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: background 0.2s; }
+        button:hover { background-color: #004494; }
+        button:disabled { background-color: #999; cursor: not-allowed; }
+        #mensajeExito { display: none; text-align: center; color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 4px; margin-top: 20px; font-weight: bold; }
+        #mensajeError { display: none; text-align: center; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Evaluación del Profesor</h1>
+    <p class="description">Por favor, califica las siguientes preguntas en una escala del <strong>0 (Pésimo/Nunca)</strong> al <strong>5 (Excelente/Siempre)</strong>.</p>
+    
+    <form id="encuestaForm">
+        <div class="form-group">
+            <label class="question-text" for="email">Correo Electrónico del Estudiante *</label>
+            <input type="email" id="email" class="email-input" required placeholder="tu-correo@estud.usfq.edu.ec">
+        </div>
+
+        <div id="preguntas-container">
+            <!-- Las preguntas se inyectarán con JavaScript -->
+        </div>
+
+        <button type="submit" id="btnSubmit">Enviar Encuesta</button>
+        <div id="mensajeExito">¡Encuesta enviada con éxito! Gracias por tu participación.</div>
+        <div id="mensajeError">Hubo un error de conexión al enviar la encuesta. Por favor, intenta de nuevo.</div>
+    </form>
+</div>
+
+<script>
+    // Tu URL de producción de n8n
+    const N8N_WEBHOOK_URL = 'https://1.jisn8n.work/webhook/encuesta-profesor';
+
+    const preguntas = [
+        "¿Qué tan oportunamente responde el profesor a correos o solicitudes académicas?",
+        "¿Qué tan claras y comprensibles son las respuestas brindadas ante dudas académicas?",
+        "¿Con qué frecuencia el profesor relaciona los contenidos del curso con otras disciplinas o áreas del conocimiento, propias del enfoque de Artes Liberales de la USFQ?",
+        "¿Con qué consistencia el profesor promueve el análisis, la reflexión y el cuestionamiento de ideas durante la clase?",
+        "¿Con qué frecuencia el profesor presenta y explica claramente las rúbricas o criterios de evaluación antes de iniciar actividades o evaluaciones del curso?",
+        "¿En qué medida el profesor aplica de forma consistente los criterios establecidos en la rúbrica al momento de evaluar el desempeño estudiantil?",
+        "¿Con qué frecuencia el profesor inicia y finaliza cada actividad de la sesión dentro de los tiempos estipulados?",
+        "¿Qué tan ágil es el paso de una explicación teórica a una actividad práctica sin perder el ritmo del grupo?",
+        "¿Con qué consistencia las explicaciones del profesor fueron claras, comprensibles y bien organizadas durante el curso?",
+        "¿Con qué frecuencia el profesor presenta objetivos claros, una secuencia lógica del contenido y un cierre definido en cada clase asegurando la claridad, coherencia y equidad del proceso de evaluación mediante rúbricas?"
+    ];
+
+    const container = document.getElementById('preguntas-container');
+
+    // Generar el HTML de las preguntas dinámicamente
+    preguntas.forEach((pregunta, index) => {
+        let opcionesHtml = '';
+        for(let i = 0; i <= 5; i++) {
+            opcionesHtml += `<label><input type="radio" name="p${index}" value="${i}" required> ${i}</label>`;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'form-group';
+        div.innerHTML = `
+            <label class="question-text">${index + 1}. ${pregunta}</label>
+            <div class="options">${opcionesHtml}</div>
+        `;
+        container.appendChild(div);
+    });
+
+    // Manejar el envío del formulario
+    document.getElementById('encuestaForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const btnSubmit = document.getElementById('btnSubmit');
+        const mensajeExito = document.getElementById('mensajeExito');
+        const mensajeError = document.getElementById('mensajeError');
+        
+        btnSubmit.disabled = true;
+        btnSubmit.innerText = 'Enviando...';
+        mensajeExito.style.display = 'none';
+        mensajeError.style.display = 'none';
+
+        const email = document.getElementById('email').value;
+        const respuestas = [];
+
+        // Recopilar respuestas
+        preguntas.forEach((pregunta, index) => {
+            const valor = document.querySelector(`input[name="p${index}"]:checked`).value;
+            respuestas.push({
+                pregunta: pregunta,
+                calificacion: parseInt(valor)
+            });
+        });
+
+        // Crear el objeto JSON que recibe n8n
+        const payload = {
+            email: email,
+            fecha: new Date().toISOString(),
+            respuestas: respuestas
+        };
+
+        // Enviar datos al webhook
+        fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            if(response.ok) {
+                document.getElementById('encuestaForm').reset();
+                mensajeExito.style.display = 'block';
+                btnSubmit.innerText = 'Enviar Encuesta';
+                btnSubmit.disabled = false;
+                
+                // Ocultar mensaje después de 5 segundos
+                setTimeout(() => {
+                    mensajeExito.style.display = 'none';
+                }, 5000);
+            } else {
+                throw new Error('Respuesta del servidor no fue OK');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mensajeError.style.display = 'block';
+            btnSubmit.innerText = 'Enviar Encuesta';
+            btnSubmit.disabled = false;
+        });
+    });
+</script>
+
+</body>
+</html>
