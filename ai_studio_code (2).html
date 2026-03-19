@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encuesta de Evaluación Docente</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .form-group { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .form-group:last-child { border-bottom: none; }
+        label.question-text { font-weight: bold; display: block; margin-bottom: 10px; color: #444; }
+        .email-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .options { display: flex; gap: 15px; }
+        .options label { cursor: pointer; background: #eef2f3; padding: 8px 15px; border-radius: 4px; display: flex; align-items: center; gap: 5px; }
+        .options label:hover { background: #dcdcdc; }
+        button { display: block; width: 100%; padding: 12px; background-color: #0056b3; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #004494; }
+        #mensajeExito { display: none; text-align: center; color: green; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Evaluación del Profesor</h1>
+    <p>Por favor, califica las siguientes preguntas en una escala del 0 (Pésimo/Nunca) al 5 (Excelente/Siempre).</p>
+    
+    <form id="encuestaForm">
+        <div class="form-group">
+            <label class="question-text" for="email">Correo Electrónico del Estudiante *</label>
+            <input type="email" id="email" class="email-input" required placeholder="tu-correo@estud.usfq.edu.ec">
+        </div>
+
+        <div id="preguntas-container">
+            <!-- Las preguntas se inyectarán con JavaScript -->
+        </div>
+
+        <button type="submit">Enviar Encuesta</button>
+        <div id="mensajeExito">¡Encuesta enviada con éxito! Gracias por tu participación.</div>
+    </form>
+</div>
+
+<script>
+    // URL de tu Webhook de n8n (CÁMBIA ESTO POR TU URL REAL)
+    const N8N_WEBHOOK_URL = 'https://TU-URL-DE-N8N.com/webhook/encuesta-profesor';
+
+    const preguntas = [
+        "¿Qué tan oportunamente responde el profesor a correos o solicitudes académicas?",
+        "¿Qué tan claras y comprensibles son las respuestas brindadas ante dudas académicas?",
+        "¿Con qué frecuencia el profesor relaciona los contenidos del curso con otras disciplinas o áreas del conocimiento, propias del enfoque de Artes Liberales de la USFQ?",
+        "¿Con qué consistencia el profesor promueve el análisis, la reflexión y el cuestionamiento de ideas durante la clase?",
+        "¿Con qué frecuencia el profesor presenta y explica claramente las rúbricas o criterios de evaluación antes de iniciar actividades o evaluaciones del curso?",
+        "¿En qué medida el profesor aplica de forma consistente los criterios establecidos en la rúbrica al momento de evaluar el desempeño estudiantil?",
+        "¿Con qué frecuencia el profesor inicia y finaliza cada actividad de la sesión dentro de los tiempos estipulados?",
+        "¿Qué tan ágil es el paso de una explicación teórica a una actividad práctica sin perder el ritmo del grupo?",
+        "¿Con qué consistencia las explicaciones del profesor fueron claras, comprensibles y bien organizadas durante el curso?",
+        "¿Con qué frecuencia el profesor presenta objetivos claros, una secuencia lógica del contenido y un cierre definido en cada clase asegurando la claridad, coherencia y equidad del proceso de evaluación mediante rúbricas?"
+    ];
+
+    const container = document.getElementById('preguntas-container');
+
+    // Generar el HTML de las preguntas dinámicamente
+    preguntas.forEach((pregunta, index) => {
+        let opcionesHtml = '';
+        for(let i = 0; i <= 5; i++) {
+            opcionesHtml += `<label><input type="radio" name="p${index}" value="${i}" required> ${i}</label>`;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'form-group';
+        div.innerHTML = `
+            <label class="question-text">${index + 1}. ${pregunta}</label>
+            <div class="options">${opcionesHtml}</div>
+        `;
+        container.appendChild(div);
+    });
+
+    // Manejar el envío del formulario
+    document.getElementById('encuestaForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const email = document.getElementById('email').value;
+        const respuestas = [];
+
+        // Recopilar respuestas junto con el texto de la pregunta
+        preguntas.forEach((pregunta, index) => {
+            const valor = document.querySelector(`input[name="p${index}"]:checked`).value;
+            respuestas.push({
+                pregunta: pregunta,
+                calificacion: parseInt(valor)
+            });
+        });
+
+        // Crear el objeto JSON que se enviará a n8n
+        const payload = {
+            email: email,
+            fecha: new Date().toISOString(),
+            respuestas: respuestas
+        };
+
+        // Enviar a n8n
+        fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            if(response.ok) {
+                document.getElementById('encuestaForm').reset();
+                document.getElementById('mensajeExito').style.display = 'block';
+                setTimeout(() => document.getElementById('mensajeExito').style.display = 'none', 5000);
+            } else {
+                alert('Hubo un error al enviar la encuesta. Inténtalo de nuevo.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error de conexión con el servidor.');
+        });
+    });
+</script>
+
+</body>
+</html>
